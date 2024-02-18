@@ -1,0 +1,87 @@
+#################################
+# 01. Install Docker-compose-plugin on AWS Linux
+
+sudo mkdir -p /usr/local/lib/docker/cli-plugins/
+sudo curl -SL https://github.com/docker/compose/releases/latest/download/docker-compose-linux-x86_64 -o /usr/local/lib/docker/cli-plugins/docker-compose
+sudo chmod +x /usr/local/lib/docker/cli-plugins/docker-compose
+
+docker compose --help
+
+mkdir -p compose/webserver
+cd compose/webserver
+# docker run --name webserver \
+             -v /web_data:/usr/share/nginx/html \
+             -p 80 --restart=always nginx:1.22
+cat <<END >  docker-compose.yml
+services:
+  webserver:
+    image: nginx:1.22
+    volumes:
+      - /web_data:/usr/share/nginx/html
+    restart: always
+    expose:
+      - 80
+END
+
+docker run --name testweb -d  nginx
+
+docker compose up -d
+docker compose ls
+docker compose ps
+docker ps -a
+
+docker inspect webserver-webserver-1
+docker exec -it webserver-webserver-1 /bin/bash
+echo "test" > /usr/share/nginx/html/index.html
+curl 172.18.0.2
+
+docker compose logs webserver
+
+docker compose up --scale webserver=2 -d
+docker compose ps
+
+docker compose stop webserver
+docker compose ps
+docker compose rm
+
+docker compose up --scale webserver=3 -d
+docker compose ps
+docker compose down
+
+
+#################################
+# 02.  wordpress 애플리케이션 운영
+# 도커 컴포즈로 애플리케이션 설정 값 지정 예
+# docker network create webapp-net: 172.18.0.0/16
+# docker run -d --name db --net webapp-net -p 5432:5432 postgres:9.4
+# docker run -d --name webserver -v /web_data:/usr/share/nginx/html  --restart=always -p 80 -p 443   -env Provider=Postgres --net webapp-net nginx:1.22
+# dockercompose.yaml
+# docker compose -d
+version "3.8"
+services:
+  db:
+    image: postgres:9.4
+    ports:
+      - 5432:5432
+    networks:
+      - webapp-net
+  webserver: 
+    image: nginx:1.22
+    volumes:
+      - /web_data:/usr/share/nginx/html
+    restart: always
+    ports:
+      - 80
+      - 443
+    environment:
+      - Provider: Postgres
+    networks:
+      - webapp-net
+    depends_on:
+      - db
+    secrets:
+      - source: secrets-data
+        target: /etc/nginx.d/secret.file
+
+# wordpress & mysql DB 연동 서비스 예제 보기
+https://docs.docker.com/samples/wordpress/
